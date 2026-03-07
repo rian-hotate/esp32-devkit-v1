@@ -30,6 +30,9 @@ fn main() -> Result<()> {
                 "タスク「{}」が異常終了しました。デバイスを再起動します。",
                 task_name
             );
+            // esp_restart() は即時リセットのため、ログが UART バッファに
+            // フラッシュされるよう少し待つ
+            std::thread::sleep(std::time::Duration::from_millis(100));
             unsafe { esp_idf_sys::esp_restart() }
         }
     }

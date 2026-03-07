@@ -5,7 +5,10 @@ use crate::{
     common::{Error, Result},
 };
 use std::{
-    sync::{mpsc, Arc},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc,
+    },
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
@@ -13,6 +16,8 @@ use std::{
 pub struct BleTask {
     #[allow(dead_code)]
     handle: JoinHandle<()>,
+    /// Shutdown コマンドによる正常終了フラグ（異常終了と区別するため）
+    shutdown_requested: Arc<AtomicBool>,
 }
 
 impl BleTask {
@@ -21,6 +26,8 @@ impl BleTask {
     /// - 戻り値: (BleTask, BleHandle) — BleHandle で BleCommand を送信できる
     pub fn start(event_tx: mpsc::Sender<BleEvent>) -> Result<(Self, BleHandle)> {
         let (cmd_tx, cmd_rx) = mpsc::channel::<BleCommand>();
+        let shutdown_requested = Arc::new(AtomicBool::new(false));
+        let shutdown_flag = shutdown_requested.clone();
 
         let handle = thread::Builder::new()
             .name("ble_task".into())
@@ -90,6 +97,7 @@ impl BleTask {
                                 log::info!("Processing Shutdown");
                                 let _ = ble.stop_pairing();
                                 let _ = ble.on_disconnected();
+                                shutdown_flag.store(true, Ordering::Relaxed);
                                 log::info!("BLE task shutting down");
                                 return;
                             }
@@ -126,11 +134,17 @@ impl BleTask {
             })
             .map_err(|e| Error::new_unexpected(&format!("failed to spawn ble_task: {e}")))?;
 
-        Ok((Self { handle }, BleHandle { tx: cmd_tx }))
+        Ok((
+            Self {
+                handle,
+                shutdown_requested,
+            },
+            BleHandle { tx: cmd_tx },
+        ))
     }
 
-    /// スレッドが終了しているか確認する（異常終了検知用）
-    pub fn is_finished(&self) -> bool {
-        self.handle.is_finished()
+    /// Shutdown コマンドを経由しない予期しない終了かどうかを返す
+    pub fn is_abnormally_terminated(&self) -> bool {
+        self.handle.is_finished() && !self.shutdown_requested.load(Ordering::Relaxed)
     }
 }

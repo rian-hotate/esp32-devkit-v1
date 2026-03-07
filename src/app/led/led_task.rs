@@ -3,18 +3,23 @@ use esp_idf_hal::delay::FreeRtos;
 use crate::app::led::led_handle::LedHandle;
 use crate::app::led::{Led, LedCommand};
 use crate::common::{Error, Result};
-use std::sync::mpsc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc};
 use std::thread::{self, JoinHandle};
 
 /// LEDタスク本体（スレッド寿命を保持）
 pub struct LedTask {
     #[allow(dead_code)]
     handle: JoinHandle<()>,
+    /// Shutdown コマンドによる正常終了フラグ（異常終了と区別するため）
+    shutdown_requested: Arc<AtomicBool>,
 }
 
 impl LedTask {
     pub fn start(mut led: Led) -> Result<(Self, LedHandle)> {
         let (tx, rx) = mpsc::channel::<LedCommand>();
+        let shutdown_requested = Arc::new(AtomicBool::new(false));
+        let shutdown_flag = shutdown_requested.clone();
 
         let handle = thread::Builder::new()
             .name("led_task".into())
@@ -46,7 +51,10 @@ impl LedTask {
                                 phase_on = false;
                                 elapsed_ms = 0;
                             }
-                            LedCommand::Shutdown => return,
+                            LedCommand::Shutdown => {
+                                shutdown_flag.store(true, Ordering::Relaxed);
+                                return;
+                            }
                         }
                     }
 
@@ -70,11 +78,11 @@ impl LedTask {
             })
             .map_err(|e| Error::new_unexpected(&format!("failed to spawn led_task: {e}")))?;
 
-        Ok((Self { handle }, LedHandle { tx }))
+        Ok((Self { handle, shutdown_requested }, LedHandle { tx }))
     }
 
-    /// スレッドが終了しているか確認する（異常終了検知用）
-    pub fn is_finished(&self) -> bool {
-        self.handle.is_finished()
+    /// Shutdown コマンドを経由しない予期しない終了かどうかを返す
+    pub fn is_abnormally_terminated(&self) -> bool {
+        self.handle.is_finished() && !self.shutdown_requested.load(Ordering::Relaxed)
     }
 }

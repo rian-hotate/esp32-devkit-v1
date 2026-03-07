@@ -71,8 +71,8 @@ impl BleController {
         Ok(Self { _handle: handle })
     }
 
-    /// スレッドが終了しているか確認する（異常終了検知用）
-    pub fn is_finished(&self) -> bool {
+    /// スレッドが予期せず終了しているかを返す（シャットダウン手段がないため終了は常に異常）
+    pub fn is_abnormally_terminated(&self) -> bool {
         self._handle.is_finished()
     }
 }
