@@ -128,4 +128,9 @@ impl BleTask {
 
         Ok((Self { handle }, BleHandle { tx: cmd_tx }))
     }
+
+    /// スレッドが終了しているか確認する（異常終了検知用）
+    pub fn is_finished(&self) -> bool {
+        self.handle.is_finished()
+    }
 }

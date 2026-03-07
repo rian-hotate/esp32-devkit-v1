@@ -49,4 +49,9 @@ impl ButtonTask {
 
         Ok(Self { _handle: h })
     }
+
+    /// スレッドが終了しているか確認する（異常終了検知用）
+    pub fn is_finished(&self) -> bool {
+        self._handle.is_finished()
+    }
 }
