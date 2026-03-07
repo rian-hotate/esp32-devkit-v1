@@ -1,10 +1,9 @@
-use std::sync::Arc;
+use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
 
 use esp_idf_hal::delay::FreeRtos;
 
 use super::{event::ButtonEvent, Button};
-use crate::app::tasks::Tasks;
 use crate::common::{Error, Result};
 
 pub struct ButtonTask {
@@ -12,16 +11,16 @@ pub struct ButtonTask {
 }
 
 impl ButtonTask {
-    pub fn start(tasks: Arc<Tasks>, button: Button) -> Result<Self> {
+    /// ButtonTask を起動する
+    /// - event_tx: ButtonEvent を AppController へ送るチャンネル
+    pub fn start(button: Button, event_tx: mpsc::Sender<ButtonEvent>) -> Result<Self> {
         let h = thread::Builder::new()
             .name("button_task".into())
             .stack_size(4096)
             .spawn(move || {
-                // 設定値
                 const POLL_MS: u32 = 20;
                 const LONG_PRESS_MS: u32 = 3000;
 
-                // 状態
                 let mut pressed_ms: u32 = 0;
                 let mut fired: bool = false;
 
@@ -29,19 +28,16 @@ impl ButtonTask {
                     let pressed = button.is_pressed();
 
                     if pressed {
-                        // 押下継続
                         if pressed_ms < LONG_PRESS_MS {
                             pressed_ms = pressed_ms.saturating_add(POLL_MS);
                         }
 
                         // 3秒到達で1回だけ発火
                         if !fired && pressed_ms >= LONG_PRESS_MS {
-                            // ボタンイベントを発行
-                            tasks.send_button_event(ButtonEvent::LongPress);
+                            let _ = event_tx.send(ButtonEvent::LongPress);
                             fired = true;
                         }
                     } else {
-                        // 離したらリセット
                         pressed_ms = 0;
                         fired = false;
                     }

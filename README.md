@@ -15,45 +15,99 @@ ESP32 DevKit V1 向けの BLE + LED 制御サンプルです。
 
 構成図 (PlantUML)
 -----------------
+
+### 図1: コンポーネント構成
+
 ```plantuml
 @startuml
-title BLE/LED 現行構成（2026-01-31）
+title コンポーネント構成
 
-actor User as User
+left to right direction
 
-package "App Tasks" {
-	[Button Task] as ButtonTask
-	[BLE Task] as BleTask
-	[LED Task] as LedTask
-	[Event Coordinator] as EventCoord
+package "ハードウェア" {
+  [ボタン GPIO] as ButtonHW
+  [LED GPIO] as LEDHW
+  [BLE ラジオ] as BLERadioHW
 }
 
-package "BLE Module" {
-	[Ble (mod.rs)] as Ble
-	[BleState] as BleState
-	[BleEvent] as BleEvent
-	[BleCommand] as BleCommand
+package "ハードウェアタスク\n(イベント発行・コマンド実行のみ)" {
+  [ButtonTask] as ButtonTask
+  [BleTask] as BleTask
+  [LedTask] as LedTask
 }
 
-package "NimBLE" {
-	[BLEServer] as BLEServer
-	[BLEAdvertising] as BLEAdvertising
+package "コントローラ\n(ドメインロジック)" {
+  [AppController] as AppCtrl
+  [BleController] as BleCtrl
+  [UiController] as UiCtrl
 }
 
-User --> ButtonTask : ButtonEvent
-ButtonTask --> EventCoord : ButtonEvent
+package "esp32_nimble" {
+  [BLEServer] as BLEServer
+  [BLEAdvertising] as BLEAdv
+}
 
-EventCoord --> BleTask : BleCommand\n(StartAdvertise/StopAdvertise)
-BleTask --> Ble : start_pairing/stop_pairing
-BleTask --> EventCoord : BleEvent\n(AdvertisingStarted/Stopped/Connected/Disconnected/Error)
+ButtonHW --> ButtonTask
+ButtonTask --> AppCtrl : ButtonEvent
+AppCtrl --> BleCtrl : BleCtrlCommand
+BleCtrl --> BleTask : BleCommand
+BleTask --> BLEServer
+BleTask --> BLEAdv
+BLEAdv --> BLERadioHW
+BLEServer --> BleTask : callback
+BleTask --> BleCtrl : BleEvent
+BleCtrl --> AppCtrl : AppEvent
+AppCtrl --> UiCtrl : UiCommand
+UiCtrl --> LedTask : LedCommand
+LedTask --> LEDHW
 
-Ble --> BLEServer : on_connect/on_disconnect
-Ble --> BLEAdvertising : start/stop
-Ble --> BleState : maintains current state
+@enduml
+```
 
-EventCoord --> LedTask : LedCommand\n(on BLE events)
+### 図2: イベントフロー
 
-BleState ..> BleEvent : (optional) StateResponse(BleState)
+```plantuml
+@startuml
+title イベントフロー
+
+actor "ユーザー" as User
+actor "BLE デバイス" as BLEDevice
+participant "ButtonTask" as BT
+participant "AppController" as AC
+participant "BleController" as BC
+participant "BleTask" as BLE
+participant "UiController" as UC
+participant "LedTask" as LED
+
+== ボタン長押し → アドバタイズ開始 ==
+User -> BT : 3秒長押し
+BT -> AC : ButtonEvent::LongPress
+AC -> BC : BleCtrlCommand::StartPairing\n(timeout: 60s)
+BC -> BLE : BleCommand::StartAdvertise
+BLE -> BC : BleEvent::AdvertisingStarted
+BC -> AC : AppEvent::PairingStarted
+AC -> UC : UiCommand::ShowPairing
+UC -> LED : LedCommand::Blink(500ms)
+
+== BLE 接続 ==
+BLEDevice -> BLE : 接続
+BLE -> BC : BleEvent::Connected
+BC -> AC : AppEvent::DeviceConnected
+AC -> UC : UiCommand::ShowConnected
+UC -> LED : LedCommand::On
+
+== BLE 切断 ==
+BLEDevice -> BLE : 切断
+BLE -> BC : BleEvent::Disconnected
+BC -> AC : AppEvent::DeviceDisconnected
+AC -> UC : UiCommand::ShowIdle
+UC -> LED : LedCommand::Off
+
+== エラー ==
+BLE -> BC : BleEvent::Error
+BC -> AC : AppEvent::BleError
+AC -> UC : UiCommand::ShowError
+UC -> LED : LedCommand::Blink(100ms)
 
 @enduml
 ```

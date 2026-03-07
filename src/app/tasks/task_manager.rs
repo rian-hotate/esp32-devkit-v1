@@ -1,75 +1,68 @@
-use std::sync::Arc;
+use std::sync::mpsc;
 
 use crate::app::{
-    ble::ble_task::BleTask,
-    button::{task::ButtonTask, Button},
+    ble::{ble_event::BleEvent, ble_task::BleTask},
+    button::{event::ButtonEvent, task::ButtonTask, Button},
+    controllers::{
+        app_controller::AppController,
+        ble_controller::BleController,
+        ui_controller::UiController,
+    },
+    events::{app_event::AppEvent, ble_ctrl_cmd::BleCtrlCommand, ui_cmd::UiCommand},
     led::{led_task::LedTask, Led},
-    tasks::{event_coordinator, Tasks},
 };
 use crate::common::Result;
 use crate::config::pins::Pins;
 
-/// タスク起動の入口
+/// 全タスク・コントローラのハンドルを保持し、スレッドが生き続けるよう管理する
 pub struct TaskManager {
-    pub tasks: Arc<Tasks>,
-
-    led_task: Option<LedTask>,
-    button_task: Option<ButtonTask>,
-    ble_task: Option<BleTask>,
-    event_coordinator: Option<event_coordinator::EventCoordinator>,
+    _led_task: LedTask,
+    _ble_task: BleTask,
+    _button_task: ButtonTask,
+    _ui_ctrl: UiController,
+    _ble_ctrl: BleController,
+    _app_ctrl: AppController,
 }
 
 impl TaskManager {
-    pub fn new() -> Self {
-        Self {
-            tasks: Tasks::new(),
-            led_task: None,
-            button_task: None,
-            ble_task: None,
-            event_coordinator: None,
-        }
-    }
-
-    pub fn start(&mut self) -> Result<()> {
+    /// チャンネルを生成・配線し、全タスク・コントローラを起動する
+    pub fn start() -> Result<Self> {
         let pins = Pins::take()?;
         let led = Led::new(pins.led);
         let button = Button::new(pins.button)?;
 
-        self.start_event_coordinator()?;
-        self.start_led_task(led)?;
-        self.start_button_task(button)?;
-        self.start_ble_task()?;
+        // --- コーディネータ間チャンネル ---
+        // BleController → AppController
+        let (app_event_tx, app_event_rx) = mpsc::channel::<AppEvent>();
+        // AppController → BleController
+        let (ble_ctrl_tx, ble_ctrl_rx) = mpsc::channel::<BleCtrlCommand>();
+        // AppController → UiController
+        let (ui_cmd_tx, ui_cmd_rx) = mpsc::channel::<UiCommand>();
 
-        Ok(())
-    }
+        // --- ハードウェアタスク用チャンネル ---
+        // ButtonTask → AppController
+        let (button_event_tx, button_event_rx) = mpsc::channel::<ButtonEvent>();
+        // BleTask → BleController
+        let (ble_event_tx, ble_event_rx) = mpsc::channel::<BleEvent>();
 
-    fn start_led_task(&mut self, led: Led) -> Result<()> {
+        // --- ハードウェアタスク起動 ---
         let (led_task, led_handle) = LedTask::start(led)?;
-        self.led_task = Some(led_task);
-        self.tasks.set_led_handle(led_handle);
+        let (ble_task, ble_handle) = BleTask::start(ble_event_tx)?;
+        let button_task = ButtonTask::start(button, button_event_tx)?;
 
-        Ok(())
-    }
+        // --- コントローラ起動 ---
+        let ui_ctrl = UiController::start(ui_cmd_rx, led_handle)?;
+        let ble_ctrl = BleController::start(ble_ctrl_rx, ble_event_rx, ble_handle, app_event_tx)?;
+        let app_ctrl =
+            AppController::start(button_event_rx, app_event_rx, ble_ctrl_tx, ui_cmd_tx)?;
 
-    fn start_button_task(&mut self, button: Button) -> Result<()> {
-        let t = ButtonTask::start(self.tasks.clone(), button)?;
-        self.button_task = Some(t);
-        Ok(())
-    }
-
-    fn start_ble_task(&mut self) -> Result<()> {
-        let (t, handle) = BleTask::start(self.tasks.clone())?;
-        self.ble_task = Some(t);
-        self.tasks.set_ble_handle(handle);
-        Ok(())
-    }
-
-    fn start_event_coordinator(&mut self) -> Result<()> {
-        let (coordinator, button_event_tx, ble_event_tx) =
-            event_coordinator::EventCoordinator::start(self.tasks.clone())?;
-        self.tasks.set_button_event_tx(button_event_tx);
-        self.tasks.set_ble_event_tx(ble_event_tx);
-        self.event_coordinator = Some(coordinator);
-        Ok(())
+        Ok(Self {
+            _led_task: led_task,
+            _ble_task: ble_task,
+            _button_task: button_task,
+            _ui_ctrl: ui_ctrl,
+            _ble_ctrl: ble_ctrl,
+            _app_ctrl: app_ctrl,
+        })
     }
 }

@@ -13,8 +13,7 @@ fn main() -> Result<()> {
     esp_idf_svc::log::EspLogger::initialize_default();
     log::info!("Application started");
 
-    let mut manager = TaskManager::new();
-    manager.start()?;
+    let _manager = TaskManager::start()?;
 
     log::info!("All tasks started");
 
