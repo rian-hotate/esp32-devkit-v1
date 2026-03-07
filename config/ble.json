@@ -1,0 +1,5 @@
+{
+    "service_uuid": "9b574847-f706-436c-bed7-fc01eb0965c1",
+    "characteristic_uuid": "681285a6-247f-48c6-80ad-68c3dce18585",
+    "device_name": "esp32-devkit-v1"
+}
