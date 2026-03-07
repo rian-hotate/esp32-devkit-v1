@@ -4,17 +4,17 @@ use std::thread::{self, JoinHandle};
 use esp_idf_hal::delay::FreeRtos;
 
 use crate::app::events::ui_cmd::UiCommand;
-use crate::app::led::{led_command::LedCommand, led_handle::LedHandle};
+use crate::app::led::{led_command::LedCommand, ledhandle::LedHandle};
 use crate::common::{Error, Result};
 
 /// UI 表示を管理するコントローラ
 /// - AppController からの UiCommand を受信して LedTask に LedCommand を発行する
 pub struct UiController {
-    _handle: JoinHandle<()>,
+    handle: JoinHandle<()>,
 }
 
 impl UiController {
-    pub fn start(ui_cmd_rx: mpsc::Receiver<UiCommand>, led_handle: LedHandle) -> Result<Self> {
+    pub fn start(ui_cmd_rx: mpsc::Receiver<UiCommand>, ledhandle: LedHandle) -> Result<Self> {
         let handle = thread::Builder::new()
             .name("ui_controller".into())
             .stack_size(4096)
@@ -30,7 +30,7 @@ impl UiController {
                             UiCommand::ShowIdle => LedCommand::Off,
                             UiCommand::ShowError => LedCommand::Blink { interval_ms: 100 },
                         };
-                        let _ = led_handle.tx.send(led_cmd);
+                        let _ = ledhandle.tx.send(led_cmd);
                     }
 
                     FreeRtos::delay_ms(20);
@@ -40,11 +40,11 @@ impl UiController {
                 Error::new_unexpected(&format!("failed to spawn ui_controller: {e}"))
             })?;
 
-        Ok(Self { _handle: handle })
+        Ok(Self { handle: handle })
     }
 
     /// スレッドが予期せず終了しているかを返す（シャットダウン手段がないため終了は常に異常）
     pub fn is_abnormally_terminated(&self) -> bool {
-        self._handle.is_finished()
+        self.handle.is_finished()
     }
 }

@@ -13,7 +13,7 @@ use crate::common::{Error, Result};
 /// - ButtonEvent を受信して BleController に指示を出す
 /// - BleController からの AppEvent を受信して UiController に表示を指示する
 pub struct AppController {
-    _handle: JoinHandle<()>,
+    handle: JoinHandle<()>,
 }
 
 impl AppController {
@@ -66,11 +66,11 @@ impl AppController {
                 Error::new_unexpected(&format!("failed to spawn app_controller: {e}"))
             })?;
 
-        Ok(Self { _handle: handle })
+        Ok(Self { handle: handle })
     }
 
     /// スレッドが予期せず終了しているかを返す（シャットダウン手段がないため終了は常に異常）
     pub fn is_abnormally_terminated(&self) -> bool {
-        self._handle.is_finished()
+        self.handle.is_finished()
     }
 }

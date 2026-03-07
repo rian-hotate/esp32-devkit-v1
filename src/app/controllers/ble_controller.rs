@@ -3,7 +3,7 @@ use std::thread::{self, JoinHandle};
 
 use esp_idf_hal::delay::FreeRtos;
 
-use crate::app::ble::{ble_command::BleCommand, ble_event::BleEvent, ble_handle::BleHandle};
+use crate::app::ble::{ble_command::BleCommand, ble_event::BleEvent, blehandle::BleHandle};
 use crate::app::events::app_event::AppEvent;
 use crate::app::events::ble_ctrl_cmd::BleCtrlCommand;
 use crate::common::{Error, Result};
@@ -12,14 +12,14 @@ use crate::common::{Error, Result};
 /// - AppController からの BleCtrlCommand を受信して BleTask に BleCommand を発行する
 /// - BleTask からの BleEvent を受信して AppEvent に変換し AppController へ報告する
 pub struct BleController {
-    _handle: JoinHandle<()>,
+    handle: JoinHandle<()>,
 }
 
 impl BleController {
     pub fn start(
         ble_ctrl_rx: mpsc::Receiver<BleCtrlCommand>,
         ble_event_rx: mpsc::Receiver<BleEvent>,
-        ble_handle: BleHandle,
+        blehandle: BleHandle,
         app_event_tx: mpsc::Sender<AppEvent>,
     ) -> Result<Self> {
         let handle = thread::Builder::new()
@@ -34,12 +34,12 @@ impl BleController {
                         log::debug!("BleController: ble ctrl command {:?}", cmd);
                         match cmd {
                             BleCtrlCommand::StartPairing { timeout_ms } => {
-                                let _ = ble_handle
+                                let _ = blehandle
                                     .tx
                                     .send(BleCommand::StartAdvertise { timeout_ms });
                             }
                             BleCtrlCommand::StopPairing => {
-                                let _ = ble_handle.tx.send(BleCommand::StopAdvertise);
+                                let _ = blehandle.tx.send(BleCommand::StopAdvertise);
                             }
                         }
                     }
@@ -68,11 +68,11 @@ impl BleController {
                 Error::new_unexpected(&format!("failed to spawn ble_controller: {e}"))
             })?;
 
-        Ok(Self { _handle: handle })
+        Ok(Self { handle: handle })
     }
 
     /// スレッドが予期せず終了しているかを返す（シャットダウン手段がないため終了は常に異常）
     pub fn is_abnormally_terminated(&self) -> bool {
-        self._handle.is_finished()
+        self.handle.is_finished()
     }
 }

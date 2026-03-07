@@ -14,7 +14,6 @@ use std::{
 };
 
 pub struct BleTask {
-    #[allow(dead_code)]
     handle: JoinHandle<()>,
     /// Shutdown コマンドによる正常終了フラグ（異常終了と区別するため）
     shutdown_requested: Arc<AtomicBool>,

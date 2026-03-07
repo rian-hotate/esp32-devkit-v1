@@ -9,7 +9,6 @@ use std::thread::{self, JoinHandle};
 
 /// LEDタスク本体（スレッド寿命を保持）
 pub struct LedTask {
-    #[allow(dead_code)]
     handle: JoinHandle<()>,
     /// Shutdown コマンドによる正常終了フラグ（異常終了と区別するため）
     shutdown_requested: Arc<AtomicBool>,

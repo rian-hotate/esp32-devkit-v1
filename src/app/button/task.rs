@@ -7,7 +7,7 @@ use super::{event::ButtonEvent, Button};
 use crate::common::{Error, Result};
 
 pub struct ButtonTask {
-    _handle: JoinHandle<()>,
+    handle: JoinHandle<()>,
 }
 
 impl ButtonTask {
@@ -47,11 +47,11 @@ impl ButtonTask {
             })
             .map_err(|e| Error::new_unexpected(&format!("failed to spawn button_task: {e}")))?;
 
-        Ok(Self { _handle: h })
+        Ok(Self { handle: h })
     }
 
     /// スレッドが予期せず終了しているかを返す（シャットダウン手段がないため終了は常に異常）
     pub fn is_abnormally_terminated(&self) -> bool {
-        self._handle.is_finished()
+        self.handle.is_finished()
     }
 }
