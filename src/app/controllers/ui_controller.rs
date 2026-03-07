@@ -1,0 +1,45 @@
+use std::sync::mpsc;
+use std::thread::{self, JoinHandle};
+
+use esp_idf_hal::delay::FreeRtos;
+
+use crate::app::events::ui_cmd::UiCommand;
+use crate::app::led::{led_command::LedCommand, led_handle::LedHandle};
+use crate::common::{Error, Result};
+
+/// UI 表示を管理するコントローラ
+/// - AppController からの UiCommand を受信して LedTask に LedCommand を発行する
+pub struct UiController {
+    _handle: JoinHandle<()>,
+}
+
+impl UiController {
+    pub fn start(ui_cmd_rx: mpsc::Receiver<UiCommand>, led_handle: LedHandle) -> Result<Self> {
+        let handle = thread::Builder::new()
+            .name("ui_controller".into())
+            .stack_size(4096)
+            .spawn(move || {
+                log::info!("UiController started");
+
+                loop {
+                    while let Ok(cmd) = ui_cmd_rx.try_recv() {
+                        log::debug!("UiController: ui command {:?}", cmd);
+                        let led_cmd = match cmd {
+                            UiCommand::ShowPairing => LedCommand::Blink { interval_ms: 500 },
+                            UiCommand::ShowConnected => LedCommand::On,
+                            UiCommand::ShowIdle => LedCommand::Off,
+                            UiCommand::ShowError => LedCommand::Blink { interval_ms: 100 },
+                        };
+                        let _ = led_handle.tx.send(led_cmd);
+                    }
+
+                    FreeRtos::delay_ms(20);
+                }
+            })
+            .map_err(|e| {
+                Error::new_unexpected(&format!("failed to spawn ui_controller: {e}"))
+            })?;
+
+        Ok(Self { _handle: handle })
+    }
+}
