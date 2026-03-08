@@ -1,13 +1,14 @@
 use std::sync::mpsc;
-use std::thread::{self, JoinHandle};
+use std::thread;
 
 use esp_idf_hal::delay::FreeRtos;
 
 use super::{event::ButtonEvent, Button};
 use crate::common::{Error, Result};
+use termination_detector::TerminationDetector;
 
 pub struct ButtonTask {
-    _handle: JoinHandle<()>,
+    detector: TerminationDetector,
 }
 
 impl ButtonTask {
@@ -47,6 +48,13 @@ impl ButtonTask {
             })
             .map_err(|e| Error::new_unexpected(&format!("failed to spawn button_task: {e}")))?;
 
-        Ok(Self { _handle: h })
+        Ok(Self {
+            detector: TerminationDetector::new_no_shutdown(h),
+        })
+    }
+
+    /// スレッドが予期せず終了しているかを返す（シャットダウン手段がないため終了は常に異常）
+    pub fn is_abnormally_terminated(&self) -> bool {
+        self.detector.is_abnormally_terminated()
     }
 }

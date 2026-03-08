@@ -3,18 +3,21 @@ use esp_idf_hal::delay::FreeRtos;
 use crate::app::led::led_handle::LedHandle;
 use crate::app::led::{Led, LedCommand};
 use crate::common::{Error, Result};
-use std::sync::mpsc;
-use std::thread::{self, JoinHandle};
+use termination_detector::TerminationDetector;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc};
+use std::thread;
 
 /// LEDタスク本体（スレッド寿命を保持）
 pub struct LedTask {
-    #[allow(dead_code)]
-    handle: JoinHandle<()>,
+    detector: TerminationDetector,
 }
 
 impl LedTask {
     pub fn start(mut led: Led) -> Result<(Self, LedHandle)> {
         let (tx, rx) = mpsc::channel::<LedCommand>();
+        let shutdown_requested = Arc::new(AtomicBool::new(false));
+        let shutdown_flag = shutdown_requested.clone();
 
         let handle = thread::Builder::new()
             .name("led_task".into())
@@ -42,11 +45,14 @@ impl LedTask {
                             LedCommand::Blink { interval_ms } => {
                                 // Constrain interval to [20ms, 65535ms] to prevent overflow
                                 // and ensure reasonable blink rates
-                                blink_interval = Some(interval_ms.max(20).min(65535));
+                                blink_interval = Some(interval_ms.clamp(20, 65535));
                                 phase_on = false;
                                 elapsed_ms = 0;
                             }
-                            LedCommand::Shutdown => return,
+                            LedCommand::Shutdown => {
+                                shutdown_flag.store(true, Ordering::Relaxed);
+                                return;
+                            }
                         }
                     }
 
@@ -70,6 +76,16 @@ impl LedTask {
             })
             .map_err(|e| Error::new_unexpected(&format!("failed to spawn led_task: {e}")))?;
 
-        Ok((Self { handle }, LedHandle { tx }))
+        Ok((
+            Self {
+                detector: TerminationDetector::new(handle, shutdown_requested),
+            },
+            LedHandle { tx },
+        ))
+    }
+
+    /// Shutdown コマンドを経由しない予期しない終了かどうかを返す
+    pub fn is_abnormally_terminated(&self) -> bool {
+        self.detector.is_abnormally_terminated()
     }
 }

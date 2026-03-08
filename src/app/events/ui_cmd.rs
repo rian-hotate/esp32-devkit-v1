@@ -2,11 +2,11 @@
 #[derive(Debug, Clone, Copy)]
 pub enum UiCommand {
     /// ペアリング中（点滅）
-    ShowPairing,
+    Pairing,
     /// 接続済み（点灯）
-    ShowConnected,
+    Connected,
     /// 待機中（消灯）
-    ShowIdle,
+    Idle,
     /// エラー（高速点滅）
-    ShowError,
+    Error,
 }

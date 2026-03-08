@@ -1,16 +1,17 @@
 use std::sync::mpsc;
-use std::thread::{self, JoinHandle};
+use std::thread;
 
 use esp_idf_hal::delay::FreeRtos;
 
 use crate::app::events::ui_cmd::UiCommand;
 use crate::app::led::{led_command::LedCommand, led_handle::LedHandle};
 use crate::common::{Error, Result};
+use termination_detector::TerminationDetector;
 
 /// UI 表示を管理するコントローラ
 /// - AppController からの UiCommand を受信して LedTask に LedCommand を発行する
 pub struct UiController {
-    _handle: JoinHandle<()>,
+    detector: TerminationDetector,
 }
 
 impl UiController {
@@ -25,10 +26,10 @@ impl UiController {
                     while let Ok(cmd) = ui_cmd_rx.try_recv() {
                         log::debug!("UiController: ui command {:?}", cmd);
                         let led_cmd = match cmd {
-                            UiCommand::ShowPairing => LedCommand::Blink { interval_ms: 500 },
-                            UiCommand::ShowConnected => LedCommand::On,
-                            UiCommand::ShowIdle => LedCommand::Off,
-                            UiCommand::ShowError => LedCommand::Blink { interval_ms: 100 },
+                            UiCommand::Pairing => LedCommand::Blink { interval_ms: 500 },
+                            UiCommand::Connected => LedCommand::On,
+                            UiCommand::Idle => LedCommand::Off,
+                            UiCommand::Error => LedCommand::Blink { interval_ms: 100 },
                         };
                         let _ = led_handle.tx.send(led_cmd);
                     }
@@ -36,10 +37,15 @@ impl UiController {
                     FreeRtos::delay_ms(20);
                 }
             })
-            .map_err(|e| {
-                Error::new_unexpected(&format!("failed to spawn ui_controller: {e}"))
-            })?;
+            .map_err(|e| Error::new_unexpected(&format!("failed to spawn ui_controller: {e}")))?;
 
-        Ok(Self { _handle: handle })
+        Ok(Self {
+            detector: TerminationDetector::new_no_shutdown(handle),
+        })
+    }
+
+    /// スレッドが予期せず終了しているかを返す（シャットダウン手段がないため終了は常に異常）
+    pub fn is_abnormally_terminated(&self) -> bool {
+        self.detector.is_abnormally_terminated()
     }
 }

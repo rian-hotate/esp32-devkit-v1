@@ -4,15 +4,18 @@ use crate::{
     app::ble::{ble_command::BleCommand, ble_event::BleEvent, ble_handle::BleHandle, Ble},
     common::{Error, Result},
 };
+use termination_detector::TerminationDetector;
 use std::{
-    sync::{mpsc, Arc},
-    thread::{self, JoinHandle},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc,
+    },
+    thread,
     time::{Duration, Instant},
 };
 
 pub struct BleTask {
-    #[allow(dead_code)]
-    handle: JoinHandle<()>,
+    detector: TerminationDetector,
 }
 
 impl BleTask {
@@ -21,6 +24,8 @@ impl BleTask {
     /// - 戻り値: (BleTask, BleHandle) — BleHandle で BleCommand を送信できる
     pub fn start(event_tx: mpsc::Sender<BleEvent>) -> Result<(Self, BleHandle)> {
         let (cmd_tx, cmd_rx) = mpsc::channel::<BleCommand>();
+        let shutdown_requested = Arc::new(AtomicBool::new(false));
+        let shutdown_flag = shutdown_requested.clone();
 
         let handle = thread::Builder::new()
             .name("ble_task".into())
@@ -77,19 +82,11 @@ impl BleTask {
                                 }
                                 pairing_deadline = None;
                             }
-                            BleCommand::GetState => {
-                                let state = ble.state();
-                                log::debug!(
-                                    "Processing GetState: connected={}, advertising={}",
-                                    state.connected,
-                                    state.advertising
-                                );
-                                let _ = event_tx.send(BleEvent::StateResponse(state));
-                            }
                             BleCommand::Shutdown => {
                                 log::info!("Processing Shutdown");
                                 let _ = ble.stop_pairing();
                                 let _ = ble.on_disconnected();
+                                shutdown_flag.store(true, Ordering::Relaxed);
                                 log::info!("BLE task shutting down");
                                 return;
                             }
@@ -126,6 +123,16 @@ impl BleTask {
             })
             .map_err(|e| Error::new_unexpected(&format!("failed to spawn ble_task: {e}")))?;
 
-        Ok((Self { handle }, BleHandle { tx: cmd_tx }))
+        Ok((
+            Self {
+                detector: TerminationDetector::new(handle, shutdown_requested),
+            },
+            BleHandle { tx: cmd_tx },
+        ))
+    }
+
+    /// Shutdown コマンドを経由しない予期しない終了かどうかを返す
+    pub fn is_abnormally_terminated(&self) -> bool {
+        self.detector.is_abnormally_terminated()
     }
 }

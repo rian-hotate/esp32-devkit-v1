@@ -65,4 +65,28 @@ impl TaskManager {
             _app_ctrl: app_ctrl,
         })
     }
+
+    /// 異常終了したタスク名を返す。全タスク正常動作中は None を返す。
+    /// Shutdown コマンドによる正常終了は異常終了と見なさない。
+    pub fn terminated_task_name(&self) -> Option<&'static str> {
+        if self._button_task.is_abnormally_terminated() {
+            return Some("button_task");
+        }
+        if self._led_task.is_abnormally_terminated() {
+            return Some("led_task");
+        }
+        if self._ble_task.is_abnormally_terminated() {
+            return Some("ble_task");
+        }
+        if self._ui_ctrl.is_abnormally_terminated() {
+            return Some("ui_controller");
+        }
+        if self._ble_ctrl.is_abnormally_terminated() {
+            return Some("ble_controller");
+        }
+        if self._app_ctrl.is_abnormally_terminated() {
+            return Some("app_controller");
+        }
+        None
+    }
 }
