@@ -11,7 +11,7 @@ ESP32 DevKit V1 向けの BLE + LED 制御サンプルです。
 - BLE アドバタイズ開始/停止
 - 接続/切断イベントの通知
 - BLE 状態に応じた LED 制御
-- 状態は `Ble` 構造体が一元管理
+- タスクが異常終了した場合、自動的にデバイスを再起動
 
 構成図 (PlantUML)
 -----------------
@@ -86,27 +86,28 @@ AC -> BC : BleCtrlCommand::StartPairing\n(timeout: 60s)
 BC -> BLE : BleCommand::StartAdvertise
 BLE -> BC : BleEvent::AdvertisingStarted
 BC -> AC : AppEvent::PairingStarted
-AC -> UC : UiCommand::ShowPairing
+AC -> UC : UiCommand::Pairing
 UC -> LED : LedCommand::Blink(500ms)
 
 == BLE 接続 ==
 BLEDevice -> BLE : 接続
 BLE -> BC : BleEvent::Connected
+BC -> BLE : BleCommand::StopAdvertise
 BC -> AC : AppEvent::DeviceConnected
-AC -> UC : UiCommand::ShowConnected
+AC -> UC : UiCommand::Connected
 UC -> LED : LedCommand::On
 
 == BLE 切断 ==
 BLEDevice -> BLE : 切断
 BLE -> BC : BleEvent::Disconnected
 BC -> AC : AppEvent::DeviceDisconnected
-AC -> UC : UiCommand::ShowIdle
+AC -> UC : UiCommand::Idle
 UC -> LED : LedCommand::Off
 
 == エラー ==
 BLE -> BC : BleEvent::Error
 BC -> AC : AppEvent::BleError
-AC -> UC : UiCommand::ShowError
+AC -> UC : UiCommand::Error
 UC -> LED : LedCommand::Blink(100ms)
 
 @enduml
@@ -123,3 +124,14 @@ cargo build
 ```bash
 cargo run
 ```
+
+開発コマンド（Makefile）
+------------------------
+
+| コマンド | 説明 |
+|---|---|
+| `make test` | `termination-detector` の lint チェック → ユニットテスト実行 |
+| `make lint` | `termination-detector` の clippy lint チェック（ホスト向け） |
+| `make lint-esp` | メインクレートの clippy lint チェック（ESP32 ツールチェーン要） |
+
+> `make lint-esp` は `espup` でセットアップした ESP32 ツールチェーンが必要です。
