@@ -82,15 +82,6 @@ impl BleTask {
                                 }
                                 pairing_deadline = None;
                             }
-                            BleCommand::GetState => {
-                                let state = ble.state();
-                                log::debug!(
-                                    "Processing GetState: connected={}, advertising={}",
-                                    state.connected,
-                                    state.advertising
-                                );
-                                let _ = event_tx.send(BleEvent::StateResponse(state));
-                            }
                             BleCommand::Shutdown => {
                                 log::info!("Processing Shutdown");
                                 let _ = ble.stop_pairing();

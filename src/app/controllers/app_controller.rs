@@ -50,12 +50,12 @@ impl AppController {
                     while let Ok(event) = app_event_rx.try_recv() {
                         log::debug!("AppController: app event {:?}", event);
                         let cmd = match event {
-                            AppEvent::PairingStarted => UiCommand::ShowPairing,
-                            AppEvent::DeviceConnected => UiCommand::ShowConnected,
+                            AppEvent::PairingStarted => UiCommand::Pairing,
+                            AppEvent::DeviceConnected => UiCommand::Connected,
                             AppEvent::DeviceDisconnected | AppEvent::PairingStopped => {
-                                UiCommand::ShowIdle
+                                UiCommand::Idle
                             }
-                            AppEvent::BleError => UiCommand::ShowError,
+                            AppEvent::BleError => UiCommand::Error,
                         };
                         let _ = ui_cmd_tx.send(cmd);
                     }

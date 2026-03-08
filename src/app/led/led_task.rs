@@ -45,7 +45,7 @@ impl LedTask {
                             LedCommand::Blink { interval_ms } => {
                                 // Constrain interval to [20ms, 65535ms] to prevent overflow
                                 // and ensure reasonable blink rates
-                                blink_interval = Some(interval_ms.max(20).min(65535));
+                                blink_interval = Some(interval_ms.clamp(20, 65535));
                                 phase_on = false;
                                 elapsed_ms = 0;
                             }

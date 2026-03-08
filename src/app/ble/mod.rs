@@ -1,7 +1,6 @@
 pub mod ble_command;
 pub mod ble_event;
 pub mod ble_handle;
-mod ble_state;
 pub mod ble_task;
 
 use esp32_nimble::{
@@ -14,7 +13,6 @@ use std::sync::{
 };
 
 use crate::app::ble::ble_event::BleEvent;
-use crate::app::ble::ble_state::BleState;
 use crate::common::{Error, Result};
 use crate::config::ble::BleConfig;
 
@@ -75,20 +73,10 @@ impl Ble {
 
         if let Some(sink) = self.event_sink.as_ref().cloned() {
             let connect_sink = sink.clone();
-            let disconnect_sink = sink.clone();
-            let advertiser_on_connect = advertiser;
-            let advertising_state = self.advertising.clone();
+            let disconnect_sink = sink;
 
             server.on_connect(move |_, _| {
-                log::info!("BLE device connected - auto-stopping advertising");
-                match advertiser_on_connect.lock().stop() {
-                    Ok(_) => {
-                        advertising_state.store(false, Ordering::Release);
-                    }
-                    Err(e) => {
-                        log::error!("Failed to stop advertising on connect: {e:?}");
-                    }
-                }
+                log::info!("BLE device connected");
                 (connect_sink)(BleEvent::Connected);
             });
 
@@ -185,17 +173,4 @@ impl Ble {
         self.error.store(value, Ordering::Release)
     }
 
-    /// 現在のエラー状態を取得
-    pub fn has_error(&self) -> bool {
-        self.error.load(Ordering::Acquire)
-    }
-
-    /// 現在のBLE状態を取得
-    pub fn state(&self) -> BleState {
-        BleState {
-            connected: self.is_connected(),
-            advertising: self.is_advertising(),
-            error: self.has_error(),
-        }
-    }
 }

@@ -6,9 +6,9 @@ use std::thread::JoinHandle;
 
 /// スレッドの「正常終了」と「異常終了」を区別する検出器
 ///
-/// - [`TerminationDetector::new`]: Shutdown コマンドを持つタスク向け。
+/// - [`TerminationDetector::new`][]: Shutdown コマンドを持つタスク向け。
 ///   フラグをセットせずにスレッドが終了した場合のみ異常と判定する。
-/// - [`TerminationDetector::new_no_shutdown`]: シャットダウン手段のないタスク向け。
+/// - [`TerminationDetector::new_no_shutdown`][]: シャットダウン手段のないタスク向け。
 ///   スレッドが終了した時点で常に異常と判定する。
 pub struct TerminationDetector {
     handle: JoinHandle<()>,

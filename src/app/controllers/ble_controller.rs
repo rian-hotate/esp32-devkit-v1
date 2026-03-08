@@ -39,9 +39,6 @@ impl BleController {
                                 let _ =
                                     blehandle.tx.send(BleCommand::StartAdvertise { timeout_ms });
                             }
-                            BleCtrlCommand::StopPairing => {
-                                let _ = blehandle.tx.send(BleCommand::StopAdvertise);
-                            }
                         }
                     }
 
@@ -51,11 +48,13 @@ impl BleController {
                         let app_event = match event {
                             BleEvent::AdvertisingStarted => Some(AppEvent::PairingStarted),
                             BleEvent::AdvertisingStopped => Some(AppEvent::PairingStopped),
-                            BleEvent::Connected => Some(AppEvent::DeviceConnected),
+                            BleEvent::Connected => {
+                                // 接続時はアドバタイズを停止してから上位へ報告する
+                                let _ = blehandle.tx.send(BleCommand::StopAdvertise);
+                                Some(AppEvent::DeviceConnected)
+                            }
                             BleEvent::Disconnected => Some(AppEvent::DeviceDisconnected),
                             BleEvent::Error => Some(AppEvent::BleError),
-                            // GetState レスポンスはコントローラレベルでは使用しない
-                            BleEvent::StateResponse(_) => None,
                         };
                         if let Some(e) = app_event {
                             let _ = app_event_tx.send(e);

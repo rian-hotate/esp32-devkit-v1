@@ -26,10 +26,10 @@ impl UiController {
                     while let Ok(cmd) = ui_cmd_rx.try_recv() {
                         log::debug!("UiController: ui command {:?}", cmd);
                         let led_cmd = match cmd {
-                            UiCommand::ShowPairing => LedCommand::Blink { interval_ms: 500 },
-                            UiCommand::ShowConnected => LedCommand::On,
-                            UiCommand::ShowIdle => LedCommand::Off,
-                            UiCommand::ShowError => LedCommand::Blink { interval_ms: 100 },
+                            UiCommand::Pairing => LedCommand::Blink { interval_ms: 500 },
+                            UiCommand::Connected => LedCommand::On,
+                            UiCommand::Idle => LedCommand::Off,
+                            UiCommand::Error => LedCommand::Blink { interval_ms: 100 },
                         };
                         let _ = ledhandle.tx.send(led_cmd);
                     }
