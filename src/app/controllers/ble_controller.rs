@@ -21,7 +21,7 @@ impl BleController {
     pub fn start(
         ble_ctrl_rx: mpsc::Receiver<BleCtrlCommand>,
         ble_event_rx: mpsc::Receiver<BleEvent>,
-        blehandle: BleHandle,
+        ble_handle: BleHandle,
         app_event_tx: mpsc::Sender<AppEvent>,
     ) -> Result<Self> {
         let handle = thread::Builder::new()
@@ -36,8 +36,9 @@ impl BleController {
                         log::debug!("BleController: ble ctrl command {:?}", cmd);
                         match cmd {
                             BleCtrlCommand::StartPairing { timeout_ms } => {
-                                let _ =
-                                    blehandle.tx.send(BleCommand::StartAdvertise { timeout_ms });
+                                let _ = ble_handle
+                                    .tx
+                                    .send(BleCommand::StartAdvertise { timeout_ms });
                             }
                         }
                     }
@@ -50,7 +51,7 @@ impl BleController {
                             BleEvent::AdvertisingStopped => Some(AppEvent::PairingStopped),
                             BleEvent::Connected => {
                                 // 接続時はアドバタイズを停止してから上位へ報告する
-                                let _ = blehandle.tx.send(BleCommand::StopAdvertise);
+                                let _ = ble_handle.tx.send(BleCommand::StopAdvertise);
                                 Some(AppEvent::DeviceConnected)
                             }
                             BleEvent::Disconnected => Some(AppEvent::DeviceDisconnected),

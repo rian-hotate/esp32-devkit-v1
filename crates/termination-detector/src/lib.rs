@@ -65,7 +65,8 @@ mod tests {
     fn フラグなしで終了したスレッドは異常終了() {
         let flag = Arc::new(AtomicBool::new(false));
         let handle = thread::spawn(|| { /* 即座に終了（Shutdown コマンドなし） */ });
-        handle.thread().unpark(); // スレッドが終了するのを待つ
+        handle.thread().unpark();
+        // スレッドが終了するのを待つ
         thread::sleep(Duration::from_millis(50));
 
         let detector = TerminationDetector::new(handle, flag);

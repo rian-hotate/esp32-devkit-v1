@@ -15,7 +15,7 @@ pub struct UiController {
 }
 
 impl UiController {
-    pub fn start(ui_cmd_rx: mpsc::Receiver<UiCommand>, ledhandle: LedHandle) -> Result<Self> {
+    pub fn start(ui_cmd_rx: mpsc::Receiver<UiCommand>, led_handle: LedHandle) -> Result<Self> {
         let handle = thread::Builder::new()
             .name("ui_controller".into())
             .stack_size(4096)
@@ -31,15 +31,13 @@ impl UiController {
                             UiCommand::Idle => LedCommand::Off,
                             UiCommand::Error => LedCommand::Blink { interval_ms: 100 },
                         };
-                        let _ = ledhandle.tx.send(led_cmd);
+                        let _ = led_handle.tx.send(led_cmd);
                     }
 
                     FreeRtos::delay_ms(20);
                 }
             })
-            .map_err(|e| {
-                Error::new_unexpected(&format!("failed to spawn ui_controller: {e}"))
-            })?;
+            .map_err(|e| Error::new_unexpected(&format!("failed to spawn ui_controller: {e}")))?;
 
         Ok(Self {
             detector: TerminationDetector::new_no_shutdown(handle),
