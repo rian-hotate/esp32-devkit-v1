@@ -1,10 +1,5 @@
-# アーキテクチャを自動検出してホストターゲットを決定する
-ARCH := $(shell uname -m)
-ifeq ($(ARCH), arm64)
-    HOST_TARGET := aarch64-apple-darwin
-else
-    HOST_TARGET := x86_64-apple-darwin
-endif
+# rustc からホストターゲットを取得する（macOS / Linux 問わず動作）
+HOST_TARGET := $(shell rustc -vV | grep '^host:' | cut -d' ' -f2)
 
 .PHONY: test lint lint-esp
 
