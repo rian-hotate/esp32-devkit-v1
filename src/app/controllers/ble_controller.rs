@@ -3,7 +3,8 @@ use std::thread;
 
 use esp_idf_hal::delay::FreeRtos;
 
-use crate::app::ble::{ble_command::BleCommand, ble_event::BleEvent, ble_handle::BleHandle};
+use crate::app::ble::ble_handle::BleHandle;
+use crate::app::ble::{ble_command::BleCommand, ble_event::BleEvent};
 use crate::app::events::app_event::AppEvent;
 use crate::app::events::ble_ctrl_cmd::BleCtrlCommand;
 use crate::common::{Error, Result};
@@ -35,9 +36,8 @@ impl BleController {
                         log::debug!("BleController: ble ctrl command {:?}", cmd);
                         match cmd {
                             BleCtrlCommand::StartPairing { timeout_ms } => {
-                                let _ = blehandle
-                                    .tx
-                                    .send(BleCommand::StartAdvertise { timeout_ms });
+                                let _ =
+                                    blehandle.tx.send(BleCommand::StartAdvertise { timeout_ms });
                             }
                             BleCtrlCommand::StopPairing => {
                                 let _ = blehandle.tx.send(BleCommand::StopAdvertise);
@@ -65,9 +65,7 @@ impl BleController {
                     FreeRtos::delay_ms(20);
                 }
             })
-            .map_err(|e| {
-                Error::new_unexpected(&format!("failed to spawn ble_controller: {e}"))
-            })?;
+            .map_err(|e| Error::new_unexpected(&format!("failed to spawn ble_controller: {e}")))?;
 
         Ok(Self {
             detector: TerminationDetector::new_no_shutdown(handle),
