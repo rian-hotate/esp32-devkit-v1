@@ -1,5 +1,5 @@
 use std::sync::mpsc;
-use std::thread::{self, JoinHandle};
+use std::thread;
 
 use esp_idf_hal::delay::FreeRtos;
 
@@ -7,12 +7,13 @@ use crate::app::ble::{ble_command::BleCommand, ble_event::BleEvent, blehandle::B
 use crate::app::events::app_event::AppEvent;
 use crate::app::events::ble_ctrl_cmd::BleCtrlCommand;
 use crate::common::{Error, Result};
+use termination_detector::TerminationDetector;
 
 /// BLE ライフサイクルを管理するコントローラ
 /// - AppController からの BleCtrlCommand を受信して BleTask に BleCommand を発行する
 /// - BleTask からの BleEvent を受信して AppEvent に変換し AppController へ報告する
 pub struct BleController {
-    handle: JoinHandle<()>,
+    detector: TerminationDetector,
 }
 
 impl BleController {
@@ -68,11 +69,13 @@ impl BleController {
                 Error::new_unexpected(&format!("failed to spawn ble_controller: {e}"))
             })?;
 
-        Ok(Self { handle: handle })
+        Ok(Self {
+            detector: TerminationDetector::new_no_shutdown(handle),
+        })
     }
 
     /// スレッドが予期せず終了しているかを返す（シャットダウン手段がないため終了は常に異常）
     pub fn is_abnormally_terminated(&self) -> bool {
-        self.handle.is_finished()
+        self.detector.is_abnormally_terminated()
     }
 }

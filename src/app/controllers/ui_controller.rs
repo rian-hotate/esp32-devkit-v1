@@ -1,16 +1,17 @@
 use std::sync::mpsc;
-use std::thread::{self, JoinHandle};
+use std::thread;
 
 use esp_idf_hal::delay::FreeRtos;
 
 use crate::app::events::ui_cmd::UiCommand;
 use crate::app::led::{led_command::LedCommand, ledhandle::LedHandle};
 use crate::common::{Error, Result};
+use termination_detector::TerminationDetector;
 
 /// UI 表示を管理するコントローラ
 /// - AppController からの UiCommand を受信して LedTask に LedCommand を発行する
 pub struct UiController {
-    handle: JoinHandle<()>,
+    detector: TerminationDetector,
 }
 
 impl UiController {
@@ -40,11 +41,13 @@ impl UiController {
                 Error::new_unexpected(&format!("failed to spawn ui_controller: {e}"))
             })?;
 
-        Ok(Self { handle: handle })
+        Ok(Self {
+            detector: TerminationDetector::new_no_shutdown(handle),
+        })
     }
 
     /// スレッドが予期せず終了しているかを返す（シャットダウン手段がないため終了は常に異常）
     pub fn is_abnormally_terminated(&self) -> bool {
-        self.handle.is_finished()
+        self.detector.is_abnormally_terminated()
     }
 }

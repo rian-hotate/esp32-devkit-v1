@@ -3,15 +3,14 @@ use esp_idf_hal::delay::FreeRtos;
 use crate::app::led::led_handle::LedHandle;
 use crate::app::led::{Led, LedCommand};
 use crate::common::{Error, Result};
+use termination_detector::TerminationDetector;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
-use std::thread::{self, JoinHandle};
+use std::thread;
 
 /// LEDタスク本体（スレッド寿命を保持）
 pub struct LedTask {
-    handle: JoinHandle<()>,
-    /// Shutdown コマンドによる正常終了フラグ（異常終了と区別するため）
-    shutdown_requested: Arc<AtomicBool>,
+    detector: TerminationDetector,
 }
 
 impl LedTask {
@@ -77,11 +76,16 @@ impl LedTask {
             })
             .map_err(|e| Error::new_unexpected(&format!("failed to spawn led_task: {e}")))?;
 
-        Ok((Self { handle, shutdown_requested }, LedHandle { tx }))
+        Ok((
+            Self {
+                detector: TerminationDetector::new(handle, shutdown_requested),
+            },
+            LedHandle { tx },
+        ))
     }
 
     /// Shutdown コマンドを経由しない予期しない終了かどうかを返す
     pub fn is_abnormally_terminated(&self) -> bool {
-        self.handle.is_finished() && !self.shutdown_requested.load(Ordering::Relaxed)
+        self.detector.is_abnormally_terminated()
     }
 }

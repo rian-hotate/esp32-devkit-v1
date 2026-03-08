@@ -1,5 +1,5 @@
 use std::sync::mpsc;
-use std::thread::{self, JoinHandle};
+use std::thread;
 
 use esp_idf_hal::delay::FreeRtos;
 
@@ -8,12 +8,13 @@ use crate::app::events::app_event::AppEvent;
 use crate::app::events::ble_ctrl_cmd::BleCtrlCommand;
 use crate::app::events::ui_cmd::UiCommand;
 use crate::common::{Error, Result};
+use termination_detector::TerminationDetector;
 
 /// アプリ全体の意思決定を担うコントローラ
 /// - ButtonEvent を受信して BleController に指示を出す
 /// - BleController からの AppEvent を受信して UiController に表示を指示する
 pub struct AppController {
-    handle: JoinHandle<()>,
+    detector: TerminationDetector,
 }
 
 impl AppController {
@@ -66,11 +67,13 @@ impl AppController {
                 Error::new_unexpected(&format!("failed to spawn app_controller: {e}"))
             })?;
 
-        Ok(Self { handle: handle })
+        Ok(Self {
+            detector: TerminationDetector::new_no_shutdown(handle),
+        })
     }
 
     /// スレッドが予期せず終了しているかを返す（シャットダウン手段がないため終了は常に異常）
     pub fn is_abnormally_terminated(&self) -> bool {
-        self.handle.is_finished()
+        self.detector.is_abnormally_terminated()
     }
 }

@@ -1,3 +1,6 @@
+[workspace]
+members = [".", "crates/termination-detector"]
+
 [package]
 name = "esp32-devkit-v1"
 version = "0.1.0"
@@ -23,6 +26,7 @@ default = []
 experimental = ["esp-idf-svc/experimental"]
 
 [dependencies]
+termination-detector = { path = "crates/termination-detector" }
 log = "0.4"
 esp-idf-svc = "0.51"
 anyhow = "1"
