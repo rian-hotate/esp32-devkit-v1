@@ -3,7 +3,7 @@ use std::thread;
 
 use esp_idf_hal::delay::FreeRtos;
 
-use crate::app::ble::{ble_command::BleCommand, ble_event::BleEvent, blehandle::BleHandle};
+use crate::app::ble::{ble_command::BleCommand, ble_event::BleEvent, ble_handle::BleHandle};
 use crate::app::events::app_event::AppEvent;
 use crate::app::events::ble_ctrl_cmd::BleCtrlCommand;
 use crate::common::{Error, Result};

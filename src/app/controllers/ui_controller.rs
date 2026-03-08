@@ -4,7 +4,7 @@ use std::thread;
 use esp_idf_hal::delay::FreeRtos;
 
 use crate::app::events::ui_cmd::UiCommand;
-use crate::app::led::{led_command::LedCommand, ledhandle::LedHandle};
+use crate::app::led::{led_command::LedCommand, led_handle::LedHandle};
 use crate::common::{Error, Result};
 use termination_detector::TerminationDetector;
 
