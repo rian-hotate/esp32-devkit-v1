@@ -10,17 +10,12 @@
 - 問題点 → 改善案 の順で説明する
 - 必要ならコード例を提示する
 
-## Commit Message
+## Review Message
 
-コミットメッセージは以下のprefixを使用
+レビューメッセージは以下のprefixを使用
 
-feat: 新機能
-fix: バグ修正
-refactor: リファクタ
-docs: ドキュメント
-test: テスト
-chore: その他
-
-例:
-feat: BLE接続処理を追加
-fix: APIレスポンスのパースエラーを修正
+must: 必ず修正して欲しい
+want: 修正して欲しい
+nits: 些細な問題（重箱の隅をつつくレベルだが修正した方が良い）
+ask: 単純に質問
+info: アドバイスや共有事項
